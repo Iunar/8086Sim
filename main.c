@@ -27,26 +27,27 @@ typedef int32_t i32;
 #define OPCODE_MOV (u8)0b10001000
 #define OPCODE_LEA (u8)0b10001100
 
-#define FLAG_D 0b00000010
-#define FLAG_W 0b00000001
-#define FLAG_REG 0b00111000
-#define FLAG_RSM 0b00000111
+#define FLAG_D (u8)0b00000010
+#define FLAG_W (u8)0b00000001
+#define REG_BITS 0b00011000
+#define RSM_BITS 0b00000011
 
 #define REGISTER_BLX 0b011
 #define REGISTER_CLX 0b001
 
 // REGISTER_NL/NX (W=0/W=1)
-#define REGISTER_A 0b00000000
-#define REGISTER_C 0b00001000
-#define REGISTER_D 0b00010000
-#define REGISTER_B 0b00011000
-
-// REGISTER AH = REGISTER AL/X + 4
+#define REG_HIGH_BIT 0b00100000 // The bit set when the register is of high varient
+#define REGISTER_A   0b00000000
+#define REGISTER_C   0b00001000
+#define REGISTER_D   0b00010000
+#define REGISTER_B   0b00011000
 
 #define HIBYTE(n) ((u8)((n) >> 8))
 #define LOBYTE(n) ((u8)(n))
 
+char instruction_str[32];
 u8 instruction[3];
+u8 REG_RSM_HIBITS[2]; // { REG, RSM }: default;
 u8 W = 0;
 u8 D = 0;
 
@@ -93,103 +94,177 @@ int main(int argc, char** argv) {
 		// Fail if MEM != 11
 		assert((HIBYTE(file[i]) & 0b11000000) == 0b11000000);
 
-		// CHECK REG
-		u8 dst_reg = (D) ? 1 : 2;
-		switch((HIBYTE(file[i]) & FLAG_REG)) {
-			case REGISTER_A || REGISTER_A + 4: {
-				instruction[dst_reg] = REGISTER_A;
+		// Check if high bit is set for REG
+		REG_RSM_HIBITS[0] = ( (HIBYTE(file[i]) & REG_HIGH_BIT) == REG_HIGH_BIT) ? 1 : 0;
+
+		// Check who contains dest/src (index)
+		//u8 dst_reg = (D) ? 1 : 2;
+		//u8 src_reg = (dst_reg == 1) ? 2 : 1;
+
+		// Check contents of REG
+		switch((HIBYTE(file[i]) & REG_BITS)) {
+			case REGISTER_A: {
+				instruction[1] = REGISTER_A;
 			}break;
 			case REGISTER_C: {
-				instruction[dst_reg] = REGISTER_C;
+				instruction[1] = REGISTER_C;
 			}break;
 			case REGISTER_D: {
-				instruction[dst_reg] = REGISTER_D;
+				instruction[1] = REGISTER_D;
 			}break;
 			case REGISTER_B: {
-				instruction[dst_reg] = REGISTER_B;
+				instruction[1] = REGISTER_B;
 			}break;
 			default:
-				printf("ILLEGAL OR UNKNOWN REGISTER (REG)\n");
+				printf("ILLEGAL OR UNKNOWN OPERAND (REG)\n");
 				exit(-1);
 		}
 
-		u8 src_reg = (dst_reg == 1) ? 2 : 1;
-		switch((HIBYTE(file[i]) & FLAG_RSM) >> 3) {
-			case (REGISTER_AL): {
-				instruction[src_reg] = REGISTER_AL;
+		// Check if high bit is set
+		REG_RSM_HIBITS[1] = ((HIBYTE(file[i]) & (REG_HIGH_BIT >> 3)) == (REG_HIGH_BIT >> 3)) ? 1 : 0;
+		// Check contents of R/M
+		switch((HIBYTE(file[i]) & RSM_BITS) << 3) {
+			case (REGISTER_A): {
+				instruction[2] = REGISTER_A;
 			}break;
-			case (REGISTER_CL): {
-				instruction[src_reg] = REGISTER_CL;
+			case (REGISTER_C): {
+				instruction[2] = REGISTER_C;
 			}break;
-			case (REGISTER_DL): {
-				instruction[src_reg] = REGISTER_DL;
+			case (REGISTER_D): {
+				instruction[2] = REGISTER_D;
 			}break;
-			case (REGISTER_BL): {
-				instruction[src_reg] = REGISTER_BL;
-			}break;
-			case (REGISTER_AH): {
-				instruction[src_reg] = REGISTER_AH;
-			}break;
-			case (REGISTER_CH): {
-				instruction[src_reg] = REGISTER_CH;
-			}break;
-			case (REGISTER_DH): {
-				instruction[src_reg] = REGISTER_DH;
-			}break;
-			case (REGISTER_BH): {
-				instruction[src_reg] = REGISTER_BH;
+			case (REGISTER_B): {
+				instruction[2] = REGISTER_B;
 			}break;
 			default:
-				printf("ILLEGAL OR UNKNOWN REGISTER (R/M)\n");
+				printf("ILLEGAL OR UNKNOWN OPERAND (R/M)\n");
 				exit(-1);
 		}
 
-		// Log final instruction bad bad bad
+		if(!D) {
+			// swap REG and RSM
+			u8 tmp = instruction[2];
+			instruction[2] = instruction[1];
+			instruction[1] = tmp;
+
+			// swap hibits
+			tmp = REG_RSM_HIBITS[1];
+			REG_RSM_HIBITS[1] = REG_RSM_HIBITS[0];
+			REG_RSM_HIBITS[0] = tmp;
+		}
+
 		switch(instruction[0]) {
 			case OPCODE_MOV: {
 				printf("mov ");
 			}break;
-			case OPCODE_LEA: {
-				printf("lea ");
+			default: {
+				printf("ILL ");
 			}break;
-			default:
-				printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (op)\n");
-				exit(-1);
 		}
+
+		// dst
 		switch(instruction[1]) {
-			case REGISTER_AL: {
-				printf("a");
+			case REGISTER_A: {
+				if(W && !REG_RSM_HIBITS[0]) { // AX
+					printf("ax, ");
+				} else if(!W && !REG_RSM_HIBITS[0]) { // AL
+					printf("al, ");
+				} else if(W && REG_RSM_HIBITS[0]) { // SP
+					printf("sp, ");
+				} else if(!W && REG_RSM_HIBITS[0]) { // AH
+					printf("ah, ");
+				}
 			}break;
-			case REGISTER_CL: {
-				printf("c");
+			case REGISTER_C: {
+				if(W && !REG_RSM_HIBITS[0]) { // CX
+					printf("cx, ");
+				} else if(!W && !REG_RSM_HIBITS[0]) { // CL
+					printf("cl, ");
+				} else if(W && REG_RSM_HIBITS[0]) { // BP
+					printf("bp, ");
+				} else if(!W && REG_RSM_HIBITS[0]) { // CH
+					printf("ch, ");
+				}
 			}break;
-			case REGISTER_DL: {
-				printf("d");
+			case REGISTER_D: {
+				if(W && !REG_RSM_HIBITS[0]) { // DX
+					printf("dx, ");
+				} else if(!W && !REG_RSM_HIBITS[0]) { // DL
+					printf("dl, ");
+				} else if(W && REG_RSM_HIBITS[0]) { // SI
+					printf("si, ");
+				} else if(!W && REG_RSM_HIBITS[0]) { // DH
+					printf("dh, ");
+				}
 			}break;
-			case REGISTER_BL: {
-				printf("b");
+			case REGISTER_B: {
+				if(W && !REG_RSM_HIBITS[0]) { // BX
+					printf("bx, ");
+				} else if(!W && !REG_RSM_HIBITS[0]) { // BL
+					printf("bl, ");
+				} else if(W && REG_RSM_HIBITS[0]) { // DI
+					printf("di, ");
+				} else if(!W && REG_RSM_HIBITS[0]) { // BH
+					printf("bh, ");
+				}
 			}break;
-			default:
-				printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (reg1)\n");
-				exit(-1);
-		} if(W) { printf("x, "); } else { printf("l, "); }
+			default: {
+				printf("ILL, ");
+			}break;
+		}
+
+		// src
 		switch(instruction[2]) {
-			case REGISTER_AL: {
-				printf("a");
+			case REGISTER_A: {
+				if(W && !REG_RSM_HIBITS[1]) { // AX
+					printf("ax");
+				} else if(!W && !REG_RSM_HIBITS[1]) { // AL
+					printf("al");
+				} else if(W && REG_RSM_HIBITS[1]) { // SP
+					printf("sp");
+				} else if(!W && REG_RSM_HIBITS[1]) { // AH
+					printf("ah");
+				}
 			}break;
-			case REGISTER_CL: {
-				printf("c");
+			case REGISTER_C: {
+				if(W && !REG_RSM_HIBITS[1]) { // CX
+					printf("cx");
+				} else if(!W && !REG_RSM_HIBITS[1]) { // CL
+					printf("cl");
+				} else if(W && REG_RSM_HIBITS[1]) { // BP
+					printf("bp");
+				} else if(!W && REG_RSM_HIBITS[1]) { // CH
+					printf("ch");
+				}
 			}break;
-			case REGISTER_DL: {
-				printf("d");
+			case REGISTER_D: {
+				if(W && !REG_RSM_HIBITS[1]) { // DX
+					printf("dx");
+				} else if(!W && !REG_RSM_HIBITS[1]) { // DL
+					printf("dl");
+				} else if(W && REG_RSM_HIBITS[1]) { // SI
+					printf("si");
+				} else if(!W && REG_RSM_HIBITS[1]) { // DH
+					printf("dh");
+				}
 			}break;
-			case REGISTER_BL: {
-				printf("b");
+			case REGISTER_B: {
+				if(W && !REG_RSM_HIBITS[1]) { // BX
+					printf("bx");
+				} else if(!W && !REG_RSM_HIBITS[1]) { // BL
+					printf("bl");
+				} else if(W && REG_RSM_HIBITS[1]) { // DI
+					printf("di");
+				} else if(!W && REG_RSM_HIBITS[1]) { // BH
+					printf("bh");
+				}
 			}break;
-			default:
-				printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (reg2)\n");
-				exit(-1);
-		} if(W) { printf("x\n"); } else { printf("l\n"); }
+			default: {
+				printf("ILL");
+			}break;
+		}
+		printf(" [%u %u (%u %u)] %u", D, W, REG_RSM_HIBITS[0], REG_RSM_HIBITS[1], LOBYTE(file[i]));
+		printf("\n");
 	}
 
 	free(file);
