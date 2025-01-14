@@ -54,7 +54,7 @@ u8 instruction[3];
 u8 W = 0;
 u8 D = 0;
 
-// TODO: add error checking, too lazy doesnt
+// TODO: add error checking, too lazy
 u16* read_program(const char* path, u32* size_out);
 
 int main(int argc, char** argv) {
@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
 	// CHECK OPCODE, UPPER 6 BITS 0b11111100
 	for(u32 i = 0; i < (file_size / 2); i++) {
 
+		// Check opcode
 		switch(LOBYTE(file[i]) & OPCODE_BITS) {
 			case OPCODE_MOV: {
 				instruction[0] = OPCODE_MOV;
@@ -92,7 +93,6 @@ int main(int argc, char** argv) {
 		if((LOBYTE(file[i]) & FLAG_D) == FLAG_D) {
 			D = 1;
 		}
-		//printf("W: %u\nD: %u\n", W, D);
 
 		// Fail if MEM != 11
 		assert((HIBYTE(file[i]) & 0b11000000) == 0b11000000);
@@ -112,27 +112,51 @@ int main(int argc, char** argv) {
 			case REGISTER_BL: {
 				instruction[dst_reg] = REGISTER_BL;
 			}break;
+			case REGISTER_AH: {
+				instruction[dst_reg] = REGISTER_AH;
+			}break;
+			case REGISTER_CH: {
+				instruction[dst_reg] = REGISTER_CH;
+			}break;
+			case REGISTER_DH: {
+				instruction[dst_reg] = REGISTER_DH;
+			}break;
+			case REGISTER_BH: {
+				instruction[dst_reg] = REGISTER_BH;
+			}break;
 			default:
-				printf("DEFAULT REG SWITCH CASE\n");
+				printf("ILLEGAL OR UNKNOWN REGISTER (REG)\n");
 				exit(-1);
 		}
 
 		u8 src_reg = (dst_reg == 1) ? 2 : 1;
-		switch((HIBYTE(file[i]) & FLAG_RSM)) {
-			case (REGISTER_AL >> 3): {
+		switch((HIBYTE(file[i]) & FLAG_RSM) >> 3) {
+			case (REGISTER_AL): {
 				instruction[src_reg] = REGISTER_AL;
 			}break;
-			case (REGISTER_CL >> 3): {
+			case (REGISTER_CL): {
 				instruction[src_reg] = REGISTER_CL;
 			}break;
-			case (REGISTER_DL >> 3): {
+			case (REGISTER_DL): {
 				instruction[src_reg] = REGISTER_DL;
 			}break;
-			case (REGISTER_BL >> 3): {
+			case (REGISTER_BL): {
 				instruction[src_reg] = REGISTER_BL;
 			}break;
+			case (REGISTER_AH): {
+				instruction[src_reg] = REGISTER_AH;
+			}break;
+			case (REGISTER_CH): {
+				instruction[src_reg] = REGISTER_CH;
+			}break;
+			case (REGISTER_DH): {
+				instruction[src_reg] = REGISTER_DH;
+			}break;
+			case (REGISTER_BH): {
+				instruction[src_reg] = REGISTER_BH;
+			}break;
 			default:
-				printf("DEFAULT R/M SWITCH CASE\n");
+				printf("ILLEGAL OR UNKNOWN REGISTER (R/M)\n");
 				exit(-1);
 		}
 
