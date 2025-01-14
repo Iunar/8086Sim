@@ -36,16 +36,12 @@ typedef int32_t i32;
 #define REGISTER_CLX 0b001
 
 // REGISTER_NL/NX (W=0/W=1)
-#define REGISTER_AL 0b00000000
-#define REGISTER_CL 0b00001000
-#define REGISTER_DL 0b00010000
-#define REGISTER_BL 0b00011000
+#define REGISTER_A 0b00000000
+#define REGISTER_C 0b00001000
+#define REGISTER_D 0b00010000
+#define REGISTER_B 0b00011000
 
-// REGISTER_NH/N (W=0/W=1)
-#define REGISTER_AH 0b00100000
-#define REGISTER_CH 0b00101000
-#define REGISTER_DH 0b00110000
-#define REGISTER_BH 0b00111000
+// REGISTER AH = REGISTER AL/X + 4
 
 #define HIBYTE(n) ((u8)((n) >> 8))
 #define LOBYTE(n) ((u8)(n))
@@ -100,29 +96,17 @@ int main(int argc, char** argv) {
 		// CHECK REG
 		u8 dst_reg = (D) ? 1 : 2;
 		switch((HIBYTE(file[i]) & FLAG_REG)) {
-			case REGISTER_AL: {
-				instruction[dst_reg] = REGISTER_AL;
+			case REGISTER_A || REGISTER_A + 4: {
+				instruction[dst_reg] = REGISTER_A;
 			}break;
-			case REGISTER_CL: {
-				instruction[dst_reg] = REGISTER_CL;
+			case REGISTER_C: {
+				instruction[dst_reg] = REGISTER_C;
 			}break;
-			case REGISTER_DL: {
-				instruction[dst_reg] = REGISTER_DL;
+			case REGISTER_D: {
+				instruction[dst_reg] = REGISTER_D;
 			}break;
-			case REGISTER_BL: {
-				instruction[dst_reg] = REGISTER_BL;
-			}break;
-			case REGISTER_AH: {
-				instruction[dst_reg] = REGISTER_AH;
-			}break;
-			case REGISTER_CH: {
-				instruction[dst_reg] = REGISTER_CH;
-			}break;
-			case REGISTER_DH: {
-				instruction[dst_reg] = REGISTER_DH;
-			}break;
-			case REGISTER_BH: {
-				instruction[dst_reg] = REGISTER_BH;
+			case REGISTER_B: {
+				instruction[dst_reg] = REGISTER_B;
 			}break;
 			default:
 				printf("ILLEGAL OR UNKNOWN REGISTER (REG)\n");
