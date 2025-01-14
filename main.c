@@ -70,116 +70,119 @@ int main(int argc, char** argv) {
 	// MMMMMMDW MMREGRMM
 	// 10001001 11011001
 	// CHECK OPCODE, UPPER 6 BITS 0b11111100
-	switch(LOBYTE(file[0]) & OPCODE_BITS) {
-		case OPCODE_MOV: {
-			instruction[0] = OPCODE_MOV;
-		}break;
-		case OPCODE_LEA: {
-			instruction[0] = OPCODE_LEA;
-		}break;
-		default:
-			printf("ILLEGAL INSTRUCTION\n");
-			return -1;
-	}
+	for(u32 i = 0; i < (file_size / 2); i++) {
 
-	// Check MOD (11 == reg mode)
-	// CHECK W FLAG, 0b00000001
-	if((LOBYTE(file[0]) & FLAG_W) == FLAG_W) {
-		W = 1;
-	}
-	if((LOBYTE(file[0]) & FLAG_D) == FLAG_D) {
-		D = 1;
-	}
-	//printf("W: %u\nD: %u\n", W, D);
+		switch(LOBYTE(file[i]) & OPCODE_BITS) {
+			case OPCODE_MOV: {
+				instruction[0] = OPCODE_MOV;
+			}break;
+			case OPCODE_LEA: {
+				instruction[0] = OPCODE_LEA;
+			}break;
+			default:
+				printf("ILLEGAL INSTRUCTION\n");
+				return -1;
+		}
 
-	// Fail if MEM != 11
-	assert((HIBYTE(file[0]) & 0b11000000) == 0b11000000);
+		// Check MOD (11 == reg mode)
+		// CHECK W FLAG, 0b00000001
+		if((LOBYTE(file[i]) & FLAG_W) == FLAG_W) {
+			W = 1;
+		}
+		if((LOBYTE(file[i]) & FLAG_D) == FLAG_D) {
+			D = 1;
+		}
+		//printf("W: %u\nD: %u\n", W, D);
 
-	// CHECK REG
-	u8 dst_reg = (D) ? 1 : 2;
-	switch((HIBYTE(file[0]) & FLAG_REG)) {
-		case REGISTER_AL: {
-			instruction[dst_reg] = REGISTER_AL;
-		}break;
-		case REGISTER_CL: {
-			instruction[dst_reg] = REGISTER_CL;
-		}break;
-		case REGISTER_DL: {
-			instruction[dst_reg] = REGISTER_DL;
-		}break;
-		case REGISTER_BL: {
-			instruction[dst_reg] = REGISTER_BL;
-		}break;
-		default:
-			printf("DEFAULT REG SWITCH CASE\n");
-			exit(-1);
-	}
+		// Fail if MEM != 11
+		assert((HIBYTE(file[i]) & 0b11000000) == 0b11000000);
 
-	u8 src_reg = (dst_reg == 1) ? 2 : 1;
-	switch((HIBYTE(file[0]) & FLAG_RSM)) {
-		case (REGISTER_AL >> 3): {
-			instruction[src_reg] = REGISTER_AL;
-		}break;
-		case (REGISTER_CL >> 3): {
-			instruction[src_reg] = REGISTER_CL;
-		}break;
-		case (REGISTER_DL >> 3): {
-			instruction[src_reg] = REGISTER_DL;
-		}break;
-		case (REGISTER_BL >> 3): {
-			instruction[src_reg] = REGISTER_BL;
-		}break;
-		default:
-			printf("DEFAULT R/M SWITCH CASE\n");
-			exit(-1);
-	}
+		// CHECK REG
+		u8 dst_reg = (D) ? 1 : 2;
+		switch((HIBYTE(file[i]) & FLAG_REG)) {
+			case REGISTER_AL: {
+				instruction[dst_reg] = REGISTER_AL;
+			}break;
+			case REGISTER_CL: {
+				instruction[dst_reg] = REGISTER_CL;
+			}break;
+			case REGISTER_DL: {
+				instruction[dst_reg] = REGISTER_DL;
+			}break;
+			case REGISTER_BL: {
+				instruction[dst_reg] = REGISTER_BL;
+			}break;
+			default:
+				printf("DEFAULT REG SWITCH CASE\n");
+				exit(-1);
+		}
 
-	// Log final instruction bad bad bad
-	switch(instruction[0]) {
-		case OPCODE_MOV: {
-			printf("mov ");
-		}break;
-		case OPCODE_LEA: {
-			printf("lea ");
-		}break;
-		default:
-			printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (op)\n");
-			exit(-1);
+		u8 src_reg = (dst_reg == 1) ? 2 : 1;
+		switch((HIBYTE(file[i]) & FLAG_RSM)) {
+			case (REGISTER_AL >> 3): {
+				instruction[src_reg] = REGISTER_AL;
+			}break;
+			case (REGISTER_CL >> 3): {
+				instruction[src_reg] = REGISTER_CL;
+			}break;
+			case (REGISTER_DL >> 3): {
+				instruction[src_reg] = REGISTER_DL;
+			}break;
+			case (REGISTER_BL >> 3): {
+				instruction[src_reg] = REGISTER_BL;
+			}break;
+			default:
+				printf("DEFAULT R/M SWITCH CASE\n");
+				exit(-1);
+		}
+
+		// Log final instruction bad bad bad
+		switch(instruction[0]) {
+			case OPCODE_MOV: {
+				printf("mov ");
+			}break;
+			case OPCODE_LEA: {
+				printf("lea ");
+			}break;
+			default:
+				printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (op)\n");
+				exit(-1);
+		}
+		switch(instruction[1]) {
+			case REGISTER_AL: {
+				printf("a");
+			}break;
+			case REGISTER_CL: {
+				printf("c");
+			}break;
+			case REGISTER_DL: {
+				printf("d");
+			}break;
+			case REGISTER_BL: {
+				printf("b");
+			}break;
+			default:
+				printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (reg1)\n");
+				exit(-1);
+		} if(W) { printf("x, "); } else { printf("l, "); }
+		switch(instruction[2]) {
+			case REGISTER_AL: {
+				printf("a");
+			}break;
+			case REGISTER_CL: {
+				printf("c");
+			}break;
+			case REGISTER_DL: {
+				printf("d");
+			}break;
+			case REGISTER_BL: {
+				printf("b");
+			}break;
+			default:
+				printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (reg2)\n");
+				exit(-1);
+		} if(W) { printf("x\n"); } else { printf("l\n"); }
 	}
-	switch(instruction[1]) {
-		case REGISTER_AL: {
-			printf("a");
-		}break;
-		case REGISTER_CL: {
-			printf("c");
-		}break;
-		case REGISTER_DL: {
-			printf("d");
-		}break;
-		case REGISTER_BL: {
-			printf("b");
-		}break;
-		default:
-			printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (reg1)\n");
-			exit(-1);
-	} if(W) { printf("x, "); } else { printf("l, "); }
-	switch(instruction[2]) {
-		case REGISTER_AL: {
-			printf("a");
-		}break;
-		case REGISTER_CL: {
-			printf("c");
-		}break;
-		case REGISTER_DL: {
-			printf("d");
-		}break;
-		case REGISTER_BL: {
-			printf("b");
-		}break;
-		default:
-			printf("DEFAULT FINAL INSTRUCTION LOG SWITCH CASE (reg2)\n");
-			exit(-1);
-	} if(W) { printf("x\n"); } else { printf("l\n"); }
 
 	free(file);
 	return 0;
