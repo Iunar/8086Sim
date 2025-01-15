@@ -2,4 +2,5 @@
 *.obj
 *.asm
 *.swp
+debug86
 test
