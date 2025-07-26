@@ -24,8 +24,11 @@ typedef int32_t i32;
 // be a byte, 8-bits.						|
 // ======================================== //
 #define OPCODE_FIELD (u8)0b11111100
-#define OPCODE_MOV (u8)0b10001000
-#define OPCODE_LEA (u8)0b10001100
+// I = immediate 
+#define OPCODE_FIELD_I (u8)0b11110000
+#define OPCODE_MOV  (u8)0b10001000
+#define OPCODE_MOVI (u8)0b10110000
+#define OPCODE_LEA  (u8)0b10001100
 
 #define D_FIELD 0b00000010
 #define W_FIELD 0b00000001
@@ -66,11 +69,12 @@ int main(int argc, char** argv) {
 		u8 first_byte =  file[j];
 		u8 second_byte = file[j + 1];
 
-		//					Lo       Hi
-		//printf("%u %u\n", first_byte, second_byte);
-
 		// Extract info from first byte
-		OPCODE = first_byte & OPCODE_FIELD;
+		if((first_byte & OPCODE_FIELD_I) == OPCODE_MOVI) {
+			OPCODE = OPCODE_MOVI;
+		} else {
+			OPCODE = first_byte & OPCODE_FIELD;
+		}
 		D = first_byte & D_FIELD;
 		W = first_byte & W_FIELD;
 
