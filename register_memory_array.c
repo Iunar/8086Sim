@@ -47,3 +47,17 @@ char REG_FIELD_STRINGS[16][3] =
 	"si\0",
 	"di\0"
 };
+
+#define EFFECTIVE_ADDRESS_TABLE_LENGTH 8
+char EFFECTIVE_ADDRESS_TABLE[24][24] =
+{
+	"bx + si\0",
+	"bx + di\0",
+	"bp + si\0",
+	"bp + di\0",
+	"si\0",
+	"di\0",
+	"bp\0", //"ADDRESS\0",
+	"bx\0"
+};
+

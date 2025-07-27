@@ -196,9 +196,23 @@ PrintMovRMToFromRegister(struct InstructionInfo Info)
 		Source = REG_FIELD_STRINGS[Info.Rm + 
 				(Info.WFlag * REG_RM_FIELD_OPTIONS_LENGTH)];
 	}
-	else
+	else if(Info.Mod == MOD_MEMORY)
+	{ // TODO: Remember special displacement case
+		//assert(false, "MOD_MEMORY\n");
+		Source = EFFECTIVE_ADDRESS_TABLE[Info.Rm];
+	}
+	else if(Info.Mod == MOD_MEMORY_D8)
 	{
-		assert(false, "MOD != MOD_REGISTER234\n");
+		//assert(false, "MOD_MEMORY_D8\n");
+		Source = EFFECTIVE_ADDRESS_TABLE[Info.Rm];
+		//if(Info.Rm == 6)
+		//{
+		//}
+	}
+	else if(Info.Mod == MOD_MEMORY_D16)
+	{
+		//assert(false, "MOD_MEMORY_D16\n");
+		Source = EFFECTIVE_ADDRESS_TABLE[Info.Rm];
 	}
 
 	if(!Info.DFlag)
@@ -208,7 +222,16 @@ PrintMovRMToFromRegister(struct InstructionInfo Info)
 		Destination = tmp;
 	}
 
-	printf("%s, %s\n", Destination, Source);
+	// TODO:Place square brackets around address calculations
+	//	Also, why does mov bp, cl read as a D8 instruction?
+	if(Info.Mod & (MOD_MEMORY_D8 | MOD_MEMORY_D16) && Info.Data != 0)
+	{
+		printf("%s, %s + %d\n", Destination, Source, Info.Data);
+	}
+	else
+	{
+		printf("%s, %s\n", Destination, Source);
+	}
 }
 
 void
@@ -331,79 +354,72 @@ PrintInstructionDetailed(uint8 Instruction[6])
 struct InstructionInfo
 DecodeMovRMToFromRegister(uint8* Instructions)
 {
+	struct InstructionInfo Result = { 0 };
+
 	uint8 HiByte = Instructions[0];
 	uint8 LoByte = Instructions[1];
 
 	/* OPCODE FIELD */
-	uint8 OPCODE = HiByte & OPCODE_MASK6;
+	Result.Opcode = HiByte & OPCODE_MASK6;
 
 	/* D FIELD */
-	uint8 D_FLAG = HiByte & D_FLAG_MASK;
-
+	Result.DFlag = (HiByte & D_FLAG_MASK) ? 1 : 0;
 
 	/* W FIELD */
-	uint8 W_FLAG = HiByte & W_FLAG_MASK;
+	Result.WFlag = (HiByte & W_FLAG_MASK) ? 1 : 0;
 
 	/* MOD FIELD */
-	uint8 MOD = LoByte & MOD_MASK;
+	Result.Mod = LoByte & MOD_MASK;
 
 	/* REG FIELD */
-	uint8 REG = 255;
+	Result.Reg = 255;
 	for(	uint32 i = 0;
 		i < REG_RM_FIELD_OPTIONS_LENGTH;
 		i++)
 	{
 		if((LoByte & REG_MASK) == REG_RM_FIELD_OPTIONS[i])
 		{
-			REG = i;
+			Result.Reg = i;
 		}
 	}
-	assert(REG < REGISTER_STRING_COUNT, "UNKNOWN REGISTER\n"); 
+	assert(Result.Reg < REGISTER_STRING_COUNT, "UNKNOWN REGISTER\n"); 
 
 	/* RM FIELD */
-	uint8 RM = 255;
-	if(MOD == MOD_REGISTER)
+	Result.Rm = 255;
+	for(	int i = 0;
+		i < REG_RM_FIELD_OPTIONS_LENGTH;
+		i++)
 	{
-		for(	int i = 0;
-				i < REG_RM_FIELD_OPTIONS_LENGTH;
-				i++)
+		if((LoByte & RM_MASK) == 
+			(REG_RM_FIELD_OPTIONS[i] >> REG_RM_BITS))
 		{
-			if((LoByte & RM_MASK) == 
-				(REG_RM_FIELD_OPTIONS[i] >> REG_RM_BITS))
-			{
-				RM = i;
-			}
+			Result.Rm = i;
 		}
 	}
-	/*switch(MOD)
-	{
-		case MOD_MEMORY: // No displacement, except when rm == 110
-		{
-		} break;
-		case MOD_MEMORY_D8: // 8-bit displacement
-		{
-		} break;
-		case MOD_MEMORY_D16: // 16-bit displacement
-		{
-		} break;
-		default:
-		{
-		} break;
-	}*/
+	assert(Result.Rm < REGISTER_STRING_COUNT, "UNKNOWN RM: %u\n", Result.Rm);
 
-	assert(RM < REGISTER_STRING_COUNT, "UNKNOWN RM: %u\n", RM);
-
-	return (struct InstructionInfo)
+	//TODO: Double check this
+	if(Result.Mod == MOD_REGISTER)
 	{
-		OPCODE,
-		D_FLAG,
-		W_FLAG,
-		MOD,
-		REG,
-		RM,
-		0,
-		2 // TODO: this will need to change at some point
-	};
+		Result.Offset = 2;
+	}
+	else if(Result.Mod == MOD_MEMORY)
+	{
+		Result.Offset = 2;
+	}
+	else if(Result.Mod == MOD_MEMORY_D8)
+	{
+		Result.Offset = 3;
+		Result.Data = (uint16)Instructions[2];
+	}
+	else if(Result.Mod == MOD_MEMORY_D16)
+	{
+		Result.Offset = 4;
+		Result.Data = (Instructions[3] << 8) | Instructions[2];
+	}
+
+
+	return Result;
 }
 
 struct InstructionInfo
@@ -429,14 +445,14 @@ DecodeMovImmediateToReg(uint8* Instructions)
 	{
 		Result.Data = (HiData << 8) | LoData;
 		Result.Offset = 3;
-		printf("[W] ");
+		//printf("[W] ");
 	}
 	else
 	{
 		// Holy fuck if you dont cast lodata to signed it fucks up
 		Result.Data = (int8)LoData;
 		Result.Offset = 2;
-		printf("[S] ");
+		//printf("[S] ");
 	}
 
 	return Result;
