@@ -185,6 +185,7 @@ PrintOpcode(uint8 HiByte)
 void
 PrintMovRMToFromRegister(struct InstructionInfo Info)
 {
+	char* EffectiveAddress = NULL;
 	printf("mov ");
 
 	/* Print mov generic */
@@ -200,11 +201,13 @@ PrintMovRMToFromRegister(struct InstructionInfo Info)
 	{ // TODO: Remember special displacement case
 		//assert(false, "MOD_MEMORY\n");
 		Source = EFFECTIVE_ADDRESS_TABLE[Info.Rm];
+		EffectiveAddress = Source;
 	}
 	else if(Info.Mod == MOD_MEMORY_D8)
 	{
 		//assert(false, "MOD_MEMORY_D8\n");
 		Source = EFFECTIVE_ADDRESS_TABLE[Info.Rm];
+		EffectiveAddress = Source;
 		//if(Info.Rm == 6)
 		//{
 		//}
@@ -213,6 +216,7 @@ PrintMovRMToFromRegister(struct InstructionInfo Info)
 	{
 		//assert(false, "MOD_MEMORY_D16\n");
 		Source = EFFECTIVE_ADDRESS_TABLE[Info.Rm];
+		EffectiveAddress = Source;
 	}
 
 	if(!Info.DFlag)
@@ -220,17 +224,33 @@ PrintMovRMToFromRegister(struct InstructionInfo Info)
 		char* tmp = Source;
 		Source = Destination;
 		Destination = tmp;
+
+		if(EffectiveAddress)
+		{
+			EffectiveAddress = Destination;
+		}
 	}
 
 	// TODO:Place square brackets around address calculations
 	//	Also, why does mov bp, cl read as a D8 instruction?
 	if(Info.Mod & (MOD_MEMORY_D8 | MOD_MEMORY_D16) && Info.Data != 0)
 	{
-		printf("%s, %s + %d\n", Destination, Source, Info.Data);
+		printf("%s, [%s + %d]\n", Destination, Source, Info.Data);
 	}
 	else
 	{
-		printf("%s, %s\n", Destination, Source);
+		if(EffectiveAddress == Source)
+		{
+			printf("%s, [%s]\n", Destination, Source);
+		}
+		else if(EffectiveAddress == Destination)
+		{
+			printf("[%s], %s\n", Destination, Source);
+		}
+		else
+		{
+			printf("%s, %s\n", Destination, Source);
+		}
 	}
 }
 
