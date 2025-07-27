@@ -429,11 +429,14 @@ DecodeMovImmediateToReg(uint8* Instructions)
 	{
 		Result.Data = (HiData << 8) | LoData;
 		Result.Offset = 3;
+		printf("[W] ");
 	}
 	else
 	{
-		Result.Data = LoData;
+		// Holy fuck if you dont cast lodata to signed it fucks up
+		Result.Data = (int8)LoData;
 		Result.Offset = 2;
+		printf("[S] ");
 	}
 
 	return Result;
