@@ -47,8 +47,18 @@ typedef uint8 bool;
 	}\
 }
 
-#define OPCODE_MOV 	0b10001000
-#define OPCODE_MASK 	0b11111100
+#define OPCODE_MASK4 	0b11110000
+#define OPCODE_MASK6 	0b11111100
+#define OPCODE_MASK7 	0b11111110
+#define OPCODE_MASK8 	0b11111111
+
+#define OPCODE_MOV 			0b10001000
+#define OPCODE_MOV_IMMEDIATE_TO_RM 	0b11000110 // RM == Register/Memory
+#define OPCODE_MOV_IMMEDIATE_TO_REG	0b10110000
+#define OPCODE_MOV_MEMORY_TO_ACCUM	0b10100000
+#define OPCODE_MOV_RM_TO_SR		0b10001110 // Segmented Register
+#define OPCODE_MOV_SR_TO_RM		0b10001100 // Segmented Register
+
 #define D_FLAG_MASK 	0b00000010
 #define W_FLAG_MASK 	0b00000001
 #define MOD_MASK 	0b11000000
@@ -57,11 +67,23 @@ typedef uint8 bool;
 #define REG_RM_BITS 	3 // Number of bits for each the REG and the RM fields
 
 #define MOD_MEMORY 	0b00000000
-#define MOD_MEMORY_8 	0b01000000
-#define MOD_MEMORY_16 	0b10000000
+#define MOD_MEMORY_D8 	0b01000000
+#define MOD_MEMORY_D16 	0b10000000
 #define MOD_REGISTER 	0b11000000
 
 #include "register_memory_array.c"
+
+struct InstructionInfo
+{
+	uint8 Opcode;
+	uint8 DFlag;
+	uint8 WFlag;
+	uint8 Mod;
+	uint8 Reg;
+	uint8 Rm;
+	int16 Data;
+	uint32 Offset;
+};
 
 static void*
 ReadFileRaw(const char* path);
@@ -73,13 +95,13 @@ void
 PrintOpcode(uint8 HiByte);
 
 void
-PrintInstruction(uint8 Instruction[6]);
+PrintInstruction(struct InstructionInfo Info);
 
 void
 PrintInstructionDetailed(uint8 Instruction[6]);
 
-void
-DecodeInstruction(uint16 Instruction, uint8 Result[6]);
+struct InstructionInfo
+DecodeInstruction(uint8* Instructions);
 
 static uint32 ProgramLength = 0;
 
@@ -87,21 +109,18 @@ int
 main()
 {
 	void* InstructionsRaw =
-		ReadFileRaw("single_register_mov");
+		ReadFileRaw("many_more_movs");
 	uint8* InstructionStream = (uint8*)InstructionsRaw;
 
-	uint16 CurrentInstruction = 0;
-	uint8  Instruction[6] = { 0 };
+	struct InstructionInfo Info = { 0 };
 	for(	uint32 i = 0;
 		i < ProgramLength;
-		i += 2)
+		)
 	{
-		CurrentInstruction = 0;
-		CurrentInstruction |= ((uint16)InstructionStream[i]) << 8;
-		CurrentInstruction |= (uint16)(InstructionStream[i + 1]);
+		Info = DecodeInstruction(InstructionStream + i);
+		i += Info.Offset;
 
-		DecodeInstruction(CurrentInstruction, Instruction);
-		PrintInstruction(Instruction);
+		PrintInstruction(Info);
 	}
 
 	free(InstructionsRaw);
@@ -162,53 +181,27 @@ PrintOpcode(uint8 HiByte)
 		((HiByte & 0b00000100) ? '1' : '0'));
 }
 
-/*
+
 void
-PrintInstruction(
-	uint8 Opcode, uint8 DFlag, uint8 WFlag, 
-	uint8 Mod, uint8 Reg, uint8 Rm); */
-void
-PrintInstruction(uint8 Instruction[6])
+PrintMovRMToFromRegister(struct InstructionInfo Info)
 {
-	uint8 Opcode 	= Instruction[0];
-	uint8 DFlag 	= Instruction[1];
-	uint8 WFlag 	= Instruction[2];
-	uint8 Mod 	= Instruction[3];
-	uint8 Reg 	= Instruction[4];
-	uint8 Rm 	= Instruction[5];
+	printf("mov ");
 
-
-	/* Print Opcode */
-	switch(Opcode)
-	{
-		case OPCODE_MOV:
-		{
-			printf("mov ");
-		} break;
-		//case :
-		//{
-		//} break;
-		default:
-		{
-			assert(false, "UNIMPLEMENTED OR ILLEGAL OPCODE\n");
-		} break;
-	}
-
-	/* Print */
-	char* Destination = REG_FIELD_STRINGS[Reg + 
-			(WFlag * REG_RM_FIELD_OPTIONS_LENGTH)];
+	/* Print mov generic */
+	char* Destination = REG_FIELD_STRINGS[Info.Reg + 
+			(Info.WFlag * REG_RM_FIELD_OPTIONS_LENGTH)];
 	char* Source = 0;
-	if(Mod == MOD_REGISTER)
+	if(Info.Mod == MOD_REGISTER)
 	{
-		Source = REG_FIELD_STRINGS[Rm + 
-				(WFlag * REG_RM_FIELD_OPTIONS_LENGTH)];
+		Source = REG_FIELD_STRINGS[Info.Rm + 
+				(Info.WFlag * REG_RM_FIELD_OPTIONS_LENGTH)];
 	}
 	else
 	{
 		assert(false, "MOD != MOD_REGISTER234\n");
 	}
 
-	if(!DFlag)
+	if(!Info.DFlag)
 	{
 		char* tmp = Source;
 		Source = Destination;
@@ -216,6 +209,49 @@ PrintInstruction(uint8 Instruction[6])
 	}
 
 	printf("%s, %s\n", Destination, Source);
+}
+
+void
+PrintMovImmediateToRegister(struct InstructionInfo Info)
+{
+	printf("mov ");
+	char* Register = REG_FIELD_STRINGS[Info.Reg + (Info.WFlag * 8)];
+	printf("%s, %d\n", Register, Info.Data);
+}
+
+void
+PrintInstruction(struct InstructionInfo Info)
+{
+	/* Print Opcode */
+	switch(Info.Opcode)
+	{
+		case OPCODE_MOV_IMMEDIATE_TO_REG:
+		{
+			PrintMovImmediateToRegister(Info);
+		} break;
+		/*case OPCODE_MOV_IMMEDIATE_TO_RM:
+		{
+		} break;
+		case OPCODE_MOV_MEMORY_TO_ACCUM:
+		{
+		} break;
+		case OPCODE_MOV_RM_TO_SR:
+		{
+		} break;
+		case OPCODE_MOV_SR_TO_RM:
+		{
+			PrintMovSRToRM();
+		} break;*/
+		case OPCODE_MOV:
+		{
+			PrintMovRMToFromRegister(Info);
+		} break;
+		default:
+		{
+			assert(false, "!UNABLE TO PRINT INSTRUCTION!\n");
+		} break;
+	}
+
 }
 
 void
@@ -257,12 +293,12 @@ PrintInstructionDetailed(uint8 Instruction[6])
 		{
 			printf("%-12s :%s\n", "MOD", "Memory, no displacement");
 		} break;
-		case MOD_MEMORY_8:
+		case MOD_MEMORY_D8:
 		{
 			printf("%-12s :%s\n", 
 				"MOD", "Memory, 8-bit displacement");
 		} break;
-		case MOD_MEMORY_16:
+		case MOD_MEMORY_D16:
 		{
 			printf("%-12s :%s\n", 
 				"MOD", "Memory, 16-bit displacement");
@@ -292,14 +328,14 @@ PrintInstructionDetailed(uint8 Instruction[6])
 			(WFlag * REG_RM_FIELD_OPTIONS_LENGTH)]);
 }
 
-void
-DecodeInstruction(uint16 Instruction, uint8 Result[6])
+struct InstructionInfo
+DecodeMovRMToFromRegister(uint8* Instructions)
 {
-	uint8 HiByte = (uint8)(Instruction >> 8);
-	uint8 LoByte = (uint8)(Instruction);
+	uint8 HiByte = Instructions[0];
+	uint8 LoByte = Instructions[1];
 
 	/* OPCODE FIELD */
-	uint8 OPCODE = HiByte & OPCODE_MASK;
+	uint8 OPCODE = HiByte & OPCODE_MASK6;
 
 	/* D FIELD */
 	uint8 D_FLAG = HiByte & D_FLAG_MASK;
@@ -310,7 +346,6 @@ DecodeInstruction(uint16 Instruction, uint8 Result[6])
 
 	/* MOD FIELD */
 	uint8 MOD = LoByte & MOD_MASK;
-
 
 	/* REG FIELD */
 	uint8 REG = 255;
@@ -330,8 +365,8 @@ DecodeInstruction(uint16 Instruction, uint8 Result[6])
 	if(MOD == MOD_REGISTER)
 	{
 		for(	int i = 0;
-			i < REG_RM_FIELD_OPTIONS_LENGTH;
-			i++)
+				i < REG_RM_FIELD_OPTIONS_LENGTH;
+				i++)
 		{
 			if((LoByte & RM_MASK) == 
 				(REG_RM_FIELD_OPTIONS[i] >> REG_RM_BITS))
@@ -340,12 +375,119 @@ DecodeInstruction(uint16 Instruction, uint8 Result[6])
 			}
 		}
 	}
-	assert(RM < REGISTER_STRING_COUNT, "UNKNOWN RM\n");
+	/*switch(MOD)
+	{
+		case MOD_MEMORY: // No displacement, except when rm == 110
+		{
+		} break;
+		case MOD_MEMORY_D8: // 8-bit displacement
+		{
+		} break;
+		case MOD_MEMORY_D16: // 16-bit displacement
+		{
+		} break;
+		default:
+		{
+		} break;
+	}*/
 
-	Result[0] = OPCODE;
-	Result[1] = D_FLAG;
-	Result[2] = W_FLAG;
-	Result[3] = MOD;
-	Result[4] = REG;
-	Result[5] = RM;
+	assert(RM < REGISTER_STRING_COUNT, "UNKNOWN RM: %u\n", RM);
+
+	return (struct InstructionInfo)
+	{
+		OPCODE,
+		D_FLAG,
+		W_FLAG,
+		MOD,
+		REG,
+		RM,
+		0,
+		2 // TODO: this will need to change at some point
+	};
+}
+
+struct InstructionInfo
+DecodeMovImmediateToReg(uint8* Instructions)
+{
+
+	struct InstructionInfo Result = { 0 };
+
+	uint8 HiByte = Instructions[0];
+	uint8 LoByte = Instructions[1];
+
+	Result.Opcode = OPCODE_MOV_IMMEDIATE_TO_REG;
+
+	Result.WFlag = (HiByte & (W_FLAG_MASK << 3)) ? 1 : 0;
+
+	Result.Reg = HiByte & (REG_MASK >> 3);
+
+	// Holy fuck dont make these signed
+	uint8 HiData = Instructions[2];
+	uint8 LoData = LoByte;
+
+	if(Result.WFlag)
+	{
+		Result.Data = (HiData << 8) | LoData;
+		Result.Offset = 3;
+	}
+	else
+	{
+		Result.Data = LoData;
+		Result.Offset = 2;
+	}
+
+	return Result;
+}
+
+struct InstructionInfo
+DecodeInstruction(uint8* Instructions)
+{
+	uint8 HiByte = Instructions[0];
+	//uint8 LoByte = Instructions[1];
+
+	/* OPCODE FIELD */
+	uint8 OPCODE = 0;
+
+	OPCODE = HiByte & OPCODE_MASK4;
+	if((OPCODE & OPCODE_MOV_IMMEDIATE_TO_REG) == OPCODE_MOV_IMMEDIATE_TO_REG)
+	{
+		return DecodeMovImmediateToReg(Instructions);
+	}
+	
+	OPCODE = HiByte & OPCODE_MASK6;
+	if((OPCODE & OPCODE_MOV) == OPCODE_MOV)
+	{
+		return DecodeMovRMToFromRegister(Instructions);
+	}
+
+	//OPCODE = HiByte & OPCODE_MASK7;
+	//if((OPCODE & ))
+
+	HiByte = Instructions[2];
+	OPCODE = HiByte & OPCODE_MASK6;
+
+	printf("Opcode: ");
+	PrintByte(OPCODE);
+	printf("\n");
+
+	printf("HiByte: ");
+	PrintByte(HiByte);
+	printf("\n");
+
+	assert(false, "UNIMPLEMENTED INSTRUCTION\n");
+
+	/*OPCODE = HiByte & OPCODE_MASK7;
+	if(OPCODE & OPCODE_MOV_IMMEDIATE_TO_REG)
+	{
+		DecodeMovImmediateToReg(Instructions, Result);
+		return;
+	}
+
+	OPCODE = HiByte & OPCODE_MASK8;
+	if(OPCODE & OPCODE_MOV_IMMEDIATE_TO_REG)
+	{
+		DecodeMovImmediateToReg(Instructions, Result);
+		return;
+	}*/
+
 }
