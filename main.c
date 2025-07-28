@@ -81,7 +81,7 @@ struct InstructionInfo
 	uint8 Mod;
 	uint8 Reg;
 	uint8 Rm;
-	int16 Data;
+	uint16 Data;
 	uint32 Offset;
 };
 
@@ -208,9 +208,6 @@ PrintMovRMToFromRegister(struct InstructionInfo Info)
 		//assert(false, "MOD_MEMORY_D8\n");
 		Source = EFFECTIVE_ADDRESS_TABLE[Info.Rm];
 		EffectiveAddress = Source;
-		//if(Info.Rm == 6)
-		//{
-		//}
 	}
 	else if(Info.Mod == MOD_MEMORY_D16)
 	{
@@ -457,7 +454,6 @@ DecodeMovImmediateToReg(uint8* Instructions)
 
 	Result.Reg = HiByte & (REG_MASK >> 3);
 
-	// Holy fuck dont make these signed
 	uint8 HiData = Instructions[2];
 	uint8 LoData = LoByte;
 
@@ -465,14 +461,11 @@ DecodeMovImmediateToReg(uint8* Instructions)
 	{
 		Result.Data = (HiData << 8) | LoData;
 		Result.Offset = 3;
-		//printf("[W] ");
 	}
 	else
 	{
-		// Holy fuck if you dont cast lodata to signed it fucks up
-		Result.Data = (int8)LoData;
+		Result.Data = LoData;
 		Result.Offset = 2;
-		//printf("[S] ");
 	}
 
 	return Result;
