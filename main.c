@@ -38,11 +38,19 @@ typedef uint64_t uint64;
 #define false 0
 typedef uint8 bool;
 
-#define assert(expr, fmt...)\
+//#define assert(expr, fmt...)\
+//{\
+	//if(!(expr))\
+	//{\
+		//fprintf(stderr, fmt);\
+		//abort();\
+	//}\
+//}
+#define assert(expr, ...)\
 {\
 	if(!(expr))\
 	{\
-		fprintf(stderr, fmt);\
+		fprintf(stderr, __VA_ARGS__);\
 		abort();\
 	}\
 }
@@ -106,10 +114,15 @@ DecodeInstruction(uint8* Instructions);
 static uint32 ProgramLength = 0;
 
 int
-main()
+main(int argc, char** argv)
 {
+	if(argc != 2)
+	{
+		assert(false, "please provide a binary to decode.\n");
+	}
+
 	void* InstructionsRaw =
-		ReadFileRaw("many_more_movs");
+		ReadFileRaw(argv[1]);
 	uint8* InstructionStream = (uint8*)InstructionsRaw;
 
 	struct InstructionInfo Info = { 0 };
